@@ -1,0 +1,11 @@
+---
+
+- name: Destroy BIG-IP DB instance
+  hosts: engine
+  gather_facts: false
+  tasks:
+  - name: remove an DB instance
+    os_server:
+      name: "db-{{ item }}"
+      state: absent
+    with_items: "{{ db_node_id }}"

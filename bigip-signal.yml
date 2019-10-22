@@ -1,0 +1,25 @@
+---
+- name: BIG-IP Signal VNF provisioning
+  hosts: engine
+  gather_facts: false
+  vars:
+    provider:
+      user: admin
+      validate_certs: no
+      server_port: 443
+      password: "Dimensiondata555"
+    default_password: "password"
+    bigip_password: "Dimensiondata555"
+
+  tasks:
+
+
+  - name: Create static route with gateway address
+    bigip_static_route:
+      destination: 0.0.0.0
+      netmask: 0.0.0.0
+      gateway_address: 172.16.105.253
+      name: default
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+    with_items: "{{ sgn_node_id }}"

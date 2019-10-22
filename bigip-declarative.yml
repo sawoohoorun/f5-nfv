@@ -1,0 +1,23 @@
+---
+- name: declaire f5 package install
+  hosts: engine
+  vars:
+    node_id:
+       - "64"
+    user: admin
+    bigip_password: Dimensiondata555
+    provider:
+      validate_certs: no
+      server_port: 443
+      user: admin
+  tasks:
+
+
+  - name: Deploy an app service configuration
+    bigip_appsvcs_extension:
+      content: "{{ lookup('file', 'license.json') }}"
+      state: present
+      provider: "{{provider}}"
+      password: "{{bigip_password}}"
+      server: "172.16.121.{{item}}"
+    with_items: "{{node_id}}"

@@ -1,0 +1,195 @@
+---
+- name: BIG-IP DAG Ltm provisioning
+  hosts: engine
+  gather_facts: false
+  vars:
+    provider:
+      user: admin
+      validate_certs: no
+      server_port: 443
+      password: "Dimensiondata555"
+    default_password: "password"
+    bigip_password: "Dimensiondata555"
+    irule_files:
+      - irules/dag.tcl
+      - irules/dag-reverse.tcl
+
+  tasks:
+
+#### irules
+
+
+  - name: copy irule file
+    copy:
+      src: "{{item}}"
+      dest: "{{item}}"
+    with_items: "{{irule_files}}"
+
+  - name: Add the iRule to dag
+    bigip_irule:
+      module: ltm
+      name: dag
+      src: irules/dag.tcl
+      state: present
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+    with_items: "{{ node_id }}"
+
+  - name: Add the iRule to dag reverse
+    bigip_irule:
+      module: ltm
+      name: dag-reverse
+      src: irules/dag-reverse.tcl
+      state: present
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+    with_items: "{{ node_id }}"
+
+
+### Pool
+
+  - name: Create a pool
+    bigip_pool:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      lb_method: round-robin
+      monitors: /Common/gateway_icmp
+      name: arista-egress
+    with_items: "{{ node_id }}"
+
+  - name: Add members to pool
+    bigip_pool_member:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      host: 172.16.102.253
+      name: arista-egress-gateway
+      pool: arista-egress
+      port: 0
+    with_items: "{{ node_id }}"
+
+  - name: Create a fastL4 profile
+    bigip_profile_fastl4:
+      name: fastl4_loose
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      loose_close: yes
+      loose_initialization: yes
+    with_items: "{{ node_id }}"
+    ignore_errors: yes
+
+
+  - name: Create a UE gateway pool
+    bigip_pool:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      lb_method: round-robin
+      monitors: /Common/gateway_icmp
+      name: arista-ingress
+    with_items: "{{ node_id }}"
+
+  - name: Add members to pool
+    bigip_pool_member:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      host: 172.16.101.253
+      name: arista-ingress-gateway
+      pool: arista-ingress
+      port: 0
+    with_items: "{{ node_id }}"
+
+  - name: Create a syslog server pool
+    bigip_pool:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      lb_method: round-robin
+      monitors: /Common/gateway_icmp
+      name: syslog_server_pool
+    with_items: "{{ node_id }}"
+
+  - name: Add members to pool
+    bigip_pool_member:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      host: 172.16.9.90
+      name: loginsight
+      pool: syslog_server_pool
+      port: 0
+    with_items: "{{ node_id }}"
+
+  - name: Create a steering pool
+    bigip_pool:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      lb_method: round-robin
+      monitors: /Common/gateway_icmp
+      name: steering_pool
+    with_items: "{{ node_id }}"
+
+
+
+
+  - name: Add members to steering pool
+    bigip_pool_member:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item[0] }}"
+      host: "172.16.103.{{item[1]}}"
+      name: "str{{item[1]}}"
+      pool: steering_pool
+      port: 0
+    with_nested:
+      - "{{ node_id }}"
+      - "{{ str_node_id}}"
+
+
+
+######## virtula server
+
+
+  - name: Add virtual server
+    bigip_virtual_server:
+      state: present
+      partition: Common
+      name: data
+      type: performance-l4
+      destination: 0.0.0.0
+      mask: 0.0.0.0
+      port: 0
+      pool: steering_pool
+      description: Data forward
+      ip_protocol: any
+      profiles:
+        - fastl4_loose
+      default_persistence_profile: source_addr
+      enabled_vlans:
+        - /Common/vlan101
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      irules:
+        - dag
+    with_items: "{{ node_id }}"
+
+
+
+
+  - name: Add virtual server
+    bigip_virtual_server:
+      state: present
+      partition: Common
+      name: data-reverse
+      destination: 0.0.0.0
+      mask: 0.0.0.0
+      port: 0
+      type: performance-l4
+      pool: steering_pool
+      description: Data forward
+      ip_protocol: any
+      profiles:
+        - fastl4_loose
+      default_persistence_profile: dest_addr
+      enabled_vlans:
+        - /Common/vlan102
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      irules:
+        - dag-reverse
+    with_items: "{{ node_id }}"

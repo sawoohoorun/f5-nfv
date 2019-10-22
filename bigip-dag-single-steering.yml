@@ -1,0 +1,59 @@
+---
+- name: BIG-IP DAG Ltm provisioning
+  hosts: engine
+  gather_facts: false
+  vars:
+    provider:
+      user: admin
+      validate_certs: no
+      server_port: 443
+      password: "Dimensiondata555"
+    default_password: "password"
+    bigip_password: "Dimensiondata555"
+
+  tasks:
+
+
+
+### Pool
+
+
+
+
+  - name: Disable steering pool members
+    bigip_pool_member:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item[0] }}"
+      host: "172.16.102.{{item[1]}}"
+      name: "str{{item[1]}}"
+      pool: steering_pool
+      state: disabled
+      port: 0
+    with_nested:
+      - "{{ node_id }}"
+      - "{{ str_node_id}}"
+
+
+  - name: Enable only node 71
+    bigip_pool_member:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      host: "172.16.102.71"
+      name: "str71"
+      pool: steering_pool
+      port: 0
+      state: enabled
+    with_items:
+      - "{{ node_id }}"
+
+  - name: Enable only node 74
+    bigip_pool_member:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      host: "172.16.102.74"
+      name: "str74"
+      pool: steering_pool
+      port: 0
+      state: enabled
+    with_items:
+      - "{{ node_id }}"

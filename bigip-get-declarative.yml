@@ -1,0 +1,23 @@
+---
+- name: check declaire status
+  hosts: f5
+  gather_facts: false
+  vars:
+    node_id:
+       - "64"
+    user: admin
+    bigip_password: Dimensiondata555
+    rpm_name: "f5-declarative-onboarding-1.7.0-3.noarch.rpm"
+  tasks:
+
+
+  - name: get declaire
+    uri:
+      url: "https://{{inventory_hostname}}/mgmt/shared/declarative-onboarding"
+      method: GET
+      user: admin
+      password: "{{bigip_password}}"
+      force_basic_auth: true
+      validate_certs: no
+      status_code: 200
+    register:  result

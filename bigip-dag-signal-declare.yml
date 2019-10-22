@@ -1,0 +1,99 @@
+---
+- name: declaire f5 package install
+  hosts: f5-dag-signal
+  vars:
+    rpm_name: "f5-declarative-onboarding-1.7.0-3.noarch.rpm"
+    provider:
+      user: admin
+      validate_certs: no
+      server_port: 443
+  tasks:
+  - name: Download F5 declarative rpm file from git
+    get_url:
+      url: "https://github.com/F5Networks/f5-declarative-onboarding/raw/master/dist/{{rpm_name}}"
+      dest: "/var/config/rest/downloads/{{rpm_name}}"
+      checksum: sha256:2df1d511d916cd29d91b37e93f08d5bb52814d33fa492bcabdd620cba960c97d
+      timeout: 60
+  - name: Change file ownership, group and permissions
+    file:
+      path: "/var/config/rest/downloads/{{rpm_name}}"
+      mode: '655'
+
+  - name: Install rpm
+    uri:
+      url: "https://{{inventory_hostname}}/mgmt/shared/iapp/package-management-tasks"
+      method: POST
+      user: admin
+      password: "{{bigip_password}}"
+      force_basic_auth: true
+      validate_certs: no
+      headers:
+        Origin: "https://{{inventory_hostname}}"
+        Content-Type: application/json;charset=UTF-8
+      body:
+        operation: INSTALL
+        packageFilePath: "/var/config/rest/downloads/{{rpm_name}}"
+      body_format: json
+      status_code: 202
+    register: result
+
+  - name: Check Declairative service
+    uri:
+      url: "https://{{inventory_hostname}}/mgmt/shared/declarative-onboarding/info"
+      method: GET
+      user: admin
+      password: "{{bigip_password}}"
+      force_basic_auth: true
+      validate_certs: no
+      headers:
+        Origin: "https://{{inventory_hostname}}"
+        Content-Type: 'application/json'
+      url_username: "admin:{{bigip_password}}"
+      url_password: null
+      status_code: 200
+    register: service_result
+    until: service_result.status == 200
+    retries: 5
+    delay: 1
+
+
+  - name: Template a file to /tmp/dag-signal.json
+    template:
+      src: dag-signal.json.j2
+      dest: /tmp/dag-signal.json
+      owner: root
+      group: root
+      mode: '0644'
+
+  - name: start declaire
+    uri:
+      url: "https://{{inventory_hostname}}/mgmt/shared/declarative-onboarding"
+      method: POST
+      user: admin
+      password: "{{bigip_password}}"
+      force_basic_auth: true
+      validate_certs: no
+      #headers:
+      #  Origin: "https://{{inventory_hostname}}"
+    #    Content-Type: application/json;charset=UTF-8
+      # body: "{{ lookup('file','default.json') | to_json }}"
+      src: /tmp/dag-signal.json
+      remote_src: yes
+      body_format: json
+      status_code: 202
+    register:  result_deploy
+
+
+  - name: get declaire
+    uri:
+      url: "https://{{inventory_hostname}}/mgmt/shared/declarative-onboarding"
+      method: GET
+      user: admin
+      password: "{{bigip_password}}"
+      force_basic_auth: true
+      validate_certs: no
+      status_code: 200
+    register: result
+    until: result.status == 200
+    retries: 60
+    delay: 1

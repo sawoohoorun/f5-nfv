@@ -1,0 +1,167 @@
+---
+- name: BIG-IP DAG Ltm provisioning
+  hosts: engine
+  gather_facts: false
+  vars:
+    provider:
+      user: admin
+      validate_certs: no
+      server_port: 443
+      password: "Dimensiondata555"
+    default_password: "password"
+    bigip_password: "Dimensiondata555"
+    irule_files:
+      - irules/dag-signal.tcl
+      - irules/dag-signal-reverse.tcl
+
+  tasks:
+
+#### irules
+
+
+  - name: copy irule file
+    copy:
+      src: "{{item}}"
+      dest: "{{item}}"
+    with_items: "{{irule_files}}"
+
+  - name: Add the iRule to dag
+    bigip_irule:
+      module: ltm
+      name: dag-signal
+      src: irules/dag-signal.tcl
+      state: present
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+    with_items: "{{ dag_signal_node_id }}"
+
+  - name: Add the iRule to dag reverse
+    bigip_irule:
+      module: ltm
+      name: dag-reverse
+      src: irules/dag-signal-reverse.tcl
+      state: present
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+    with_items: "{{ dag_signal_node_id }}"
+
+
+### Pool
+
+  - name: Create GGSN pool
+    bigip_pool:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      lb_method: round-robin
+      monitors: /Common/gateway_icmp
+      name: ggsn_pool
+    with_items: "{{ dag_signal_node_id }}"
+
+  - name: Add members to GGSN pool
+    bigip_pool_member:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      host: 172.16.104.253
+      name: ggsn-signal
+      pool: ggsn_pool
+      port: 0
+    with_items: "{{ dag_signal_node_id }}"
+
+  - name: Create a fastL4 profile
+    bigip_profile_fastl4:
+      name: fastl4_loose
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      loose_close: yes
+      loose_initialization: yes
+    with_items: "{{ dag_signal_node_id }}"
+    ignore_errors: yes
+
+
+  - name: Create GPRS pool
+    bigip_pool:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      lb_method: round-robin
+      monitors: /Common/gateway_icmp
+      name: gprs_pool
+    with_items: "{{ dag_signal_node_id }}"
+
+  - name: Add members to pool
+    bigip_pool_member:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      host: 172.16.105.253
+      name: gprs_gateway
+      pool: gprs_pool
+      port: 0
+    with_items: "{{ dag_signal_node_id }}"
+
+  - name: Create a syslog server pool
+    bigip_pool:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      lb_method: round-robin
+      monitors: /Common/gateway_icmp
+      name: syslog_server_pool
+    with_items: "{{ dag_signal_node_id }}"
+
+  - name: Add members to syslog pool
+    bigip_pool_member:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      host: 172.16.9.90
+      name: loginsight
+      pool: syslog_server_pool
+      port: 0
+    with_items: "{{ dag_signal_node_id }}"
+
+  - name: Create a signal pool
+    bigip_pool:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      lb_method: round-robin
+      monitors: /Common/gateway_icmp
+      name: signal_pool
+    with_items: "{{ dag_signal_node_id }}"
+
+
+  - name: Add members to steering pool
+    bigip_pool_member:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item[0] }}"
+      host: "172.16.105.{{item[1]}}"
+      name: "sgn{{item[1]}}"
+      pool: signal_pool
+      port: 0
+    with_nested:
+      - "{{ dag_signal_node_id }}"
+      - "{{ sgn_node_id}}"
+
+
+
+######## virtula server
+
+
+  - name: vs signal
+    bigip_virtual_server:
+      state: present
+      partition: Common
+      name: signal
+      type: performance-l4
+      destination: 0.0.0.0
+      mask: 0.0.0.0
+      port: 0
+      pool: signal_pool
+      description: signal node
+      ip_protocol: any
+      profiles:
+        - fastl4_loose
+      default_persistence_profile: source_addr
+      enabled_vlans:
+        - /Common/vlan104
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      irules:
+        - dag-signal
+    with_items: "{{ dag_signal_node_id }}"

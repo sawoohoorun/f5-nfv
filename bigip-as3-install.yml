@@ -1,0 +1,59 @@
+---
+- name: declaire f5 package install
+  hosts: f5
+  become: true
+  vars:
+    rpm_name: "f5-appsvcs-3.14.0-4.noarch.rpm"
+    provider:
+      user: admin
+      validate_certs: no
+      server_port: 443
+  tasks:
+  - name: Download F5 AS3 rpm file from git
+    get_url:
+      url: "https://github.com/F5Networks/f5-appsvcs-extension/raw/master/dist/latest/{{rpm_name}}"
+      dest: "/var/config/rest/downloads/{{rpm_name}}"
+      checksum: sha256:797d8f61e1b932c4b9e017bf1444f644203e34692aa90fa0e2004ce77bacb875
+      timeout: 60
+
+  - name: Change file ownership, group and permissions
+    file:
+      path: "/var/config/rest/downloads/{{rpm_name}}"
+      mode: '655'
+
+  - name: Install rpm
+    uri:
+      url: "https://{{inventory_hostname}}/mgmt/shared/iapp/package-management-tasks"
+      method: POST
+      user: admin
+      password: "{{bigip_password}}"
+      force_basic_auth: true
+      validate_certs: no
+      headers:
+        Origin: "https://{{inventory_hostname}}"
+        Content-Type: application/json;charset=UTF-8
+      body:
+        operation: INSTALL
+        packageFilePath: "/var/config/rest/downloads/{{rpm_name}}"
+      body_format: json
+      status_code: 202
+    register: result
+
+  - name: Check AS3 service
+    uri:
+      url: "https://{{inventory_hostname}}/mgmt/shared/appsvcs/info"
+      method: GET
+      user: admin
+      password: "{{bigip_password}}"
+      force_basic_auth: true
+      validate_certs: no
+      headers:
+        Origin: "https://{{inventory_hostname}}"
+        Content-Type: 'application/json'
+      url_username: "admin:{{bigip_password}}"
+      url_password: null
+      status_code: 200
+    register: service_result
+    until: service_result.status == 200
+    retries: 10
+    delay: 1

@@ -1,0 +1,31 @@
+---
+- name: BIG-IP ubuntu VNF onboarding
+  hosts: engine
+  gather_facts: false
+  vars:
+    provider:
+      user: admin
+      validate_certs: no
+      server_port: 443
+    default_password: ubuntu
+
+  tasks:
+  - name:  Creates a new client instance
+    os_server:
+      cloud: devstack
+      state: present
+      name: "client-{{ item }}"
+      image: ubuntu
+
+      timeout: 200
+      flavor: m1.large
+      nics: "port-name=vlan121_node{{ item }},port-name=vlan107_node{{ item }}"
+      userdata: |
+          #cloud-config
+          chpasswd:
+            list: |
+              ubuntu:{{ default_password }}
+            expire: False
+          ssh_pwauth: True
+    with_items: "{{ client_node_id }}"
+    register: result

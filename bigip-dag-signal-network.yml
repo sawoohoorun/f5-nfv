@@ -1,0 +1,73 @@
+---
+- name: BIG-IP Network onboarding
+  hosts: engine
+  gather_facts: false
+  vars:
+    provider:
+      user: admin
+      validate_certs: no
+      server_port: 443
+      password: "Dimensiondata555"
+    default_password: "password"
+    bigip_password: "Dimensiondata555"
+
+
+
+  tasks:
+  - name: enable routing
+    bigip_routedomain:
+      id: 0
+      state: present
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      routing_protocol:
+        - BGP
+    with_items: "{{ dag_signal_node_id }}"
+
+
+  - name: Add config to a existing BGP
+    bigip_imish_config:
+      lines:
+        - bgp graceful-restart restart-time 120
+        - neighbor 172.16.104.253 remote-as 65000
+        - neighbor 172.16.104.253 activate
+        - network 11.11.11.11/32
+        - network 12.12.12.12/32
+      before: no router bgp 65002
+      parents: router bgp 65002
+      match: exact
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+    with_items: "{{ dag_signal_node_id }}"
+
+
+
+  - name: Create static route with gateway address
+    bigip_management_route:
+      network: 172.16.0.0/16
+      gateway: 172.16.121.1
+      name: mgmt-route
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      state: absent
+    with_items: "{{ dag_signal_node_id }}"
+
+  - name: Create static route to GGSN signal
+    bigip_static_route:
+      destination: 172.16.107.0
+      netmask: 255.255.255.0
+      gateway_address: 172.16.104.253
+      name: ggsn-signal
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+    with_items: "{{ dag_signal_node_id }}"
+
+  - name: Create static route to GPRS
+    bigip_static_route:
+      destination: 172.16.106.0
+      netmask: 255.255.255.0
+      gateway_address: 172.16.104.253
+      name: gprs-signal
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+    with_items: "{{ dag_signal_node_id }}"

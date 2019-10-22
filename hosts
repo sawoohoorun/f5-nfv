@@ -1,0 +1,17 @@
+[engine]
+ansible.msts.nfv  ansible_connection=local
+
+[f5]
+172.16.121.64 node_id=64
+
+
+[f5:vars]
+ansible_connection=ssh
+ansible_ssh_user=root
+ansible_ssh_pass=Dimensiondata555
+user: admin
+bigip_password: Dimensiondata555
+provider:
+  user: admin
+  validate_certs: no
+  server_port: 443

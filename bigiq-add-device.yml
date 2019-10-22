@@ -1,0 +1,30 @@
+---
+- name: Adding BIG-IP device to BIG-IQ
+  hosts: engine
+  gather_facts: false
+  vars:
+    provider:
+      user: admin
+      validate_certs: no
+      server_port: 443
+    default_password: "password"
+    bigip_password: "Dimensiondata555"
+    bigiq_password: "P@ssw0rd"
+    bigiq_fqdn: "bigiq.msts.nfv"
+    node_id:
+      - "64"
+
+  tasks:
+
+  - name: Discover a new device
+    bigiq_device_discovery:
+      device_address: "172.16.121.{{item}}"
+      device_username: "admin"
+      device_password: "{{ bigip_password }}"
+      modules:
+        - ltm
+        - dns
+      provider: "{{ provider }}"
+      password: "{{ bigiq_password }}"
+      server: "{{ bigiq_fqdn }}"
+    with_items: "{{ node_id }}"

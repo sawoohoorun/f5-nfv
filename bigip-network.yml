@@ -1,0 +1,155 @@
+---
+- name: BIG-IP Network onboarding
+  hosts: engine
+  gather_facts: false
+  vars:
+    provider:
+      user: admin
+      validate_certs: no
+      server_port: 443
+      password: "Dimensiondata555"
+    default_password: "password"
+    bigip_password: "Dimensiondata555"
+
+
+
+  tasks:
+  - name: enable routing
+    bigip_routedomain:
+      id: 0
+      state: present
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      routing_protocol:
+        - BGP
+    with_items: "{{ node_id }}"
+
+  - name: Create VLAN 101
+    bigip_vlan:
+      name: vlan101
+      tag: 101
+      untagged_interface: 1.1
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+    with_items: "{{ node_id }}"
+    notify: create self 101
+
+
+  - name: Create VLAN 102
+    bigip_vlan:
+      name: vlan102
+      tag: 102
+      untagged_interface: 1.2
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+    with_items: "{{ node_id }}"
+    notify: create self 102
+
+  - name: Create VLAN 103
+    bigip_vlan:
+      name: vlan103
+      tag: 103
+      untagged_interface: 1.3
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+    with_items: "{{ node_id }}"
+    notify: create self 103
+
+  - name: create route-map
+    bigip_imish_config:
+      lines:
+        - access-list default-route permit 0.0.0.0/0 exact-match
+        - access-list client permit 172.16.161.0/24 exact-match
+        - route-map egress deny 10
+        - match ip address default-route
+        - route-map egress permit 20
+        - match ip address client
+        - route-map ingress deny 10
+        - match ip address client
+        - route-map ingress permit 20
+        - match ip address default-route
+      match: exact
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+    with_items: "{{ node_id }}"
+
+
+  - name: Add config to a existin BGP
+    bigip_imish_config:
+      lines:
+        - bgp graceful-restart restart-time 120
+        - neighbor 172.16.101.253 remote-as 65000
+        - neighbor 172.16.101.253 route-map
+        - neighbor 172.16.101.253 activate
+        - neighbor 172.16.102.253 remote-as 65000
+        - neighbor 172.16.102.253 route-map
+        - neighbor 172.16.102.253 activate
+        - network 0.0.0.0/0
+        - network 172.16.161.0/24
+      before: no router bgp 65001
+      parents: router bgp 65001
+      match: exact
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+    with_items: "{{ node_id }}"
+
+
+
+  - name: Create static route with gateway address
+    bigip_management_route:
+      network: 172.16.0.0/16
+      gateway: 172.16.121.1
+      name: mgmt-route
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+    with_items: "{{ node_id }}"
+
+  - name: Create static route with gateway address
+    bigip_static_route:
+      destination: 0.0.0.0
+      netmask: 0.0.0.0
+      gateway_address: 172.16.102.254
+      name: default
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+    with_items: "{{ node_id }}"
+
+
+
+  handlers:
+  - name: create self 101
+    bigip_selfip:
+      name: ingress
+      address: "172.16.101.{{ item }}"
+      netmask: 255.255.255.0
+      vlan: vlan101
+      allow_service:
+        - all
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+    with_items: "{{ node_id }}"
+
+  - name: create self 102
+    bigip_selfip:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      name: egress
+      address: "172.16.102.{{ item }}"
+      netmask: 255.255.255.0
+      vlan: vlan102
+      allow_service:
+       - all
+    with_items: "{{ node_id }}"
+
+
+  - name: create self 103
+    bigip_selfip:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      name: dag
+      address: "172.16.103.{{ item }}"
+      netmask: 255.255.255.0
+      vlan: vlan103
+      allow_service:
+       - all
+    with_items: "{{ node_id }}"

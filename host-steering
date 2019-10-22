@@ -1,0 +1,19 @@
+[engine]
+ansible.msts.nfv  ansible_connection=ssh
+
+[engine:vars]
+node_id= '[71,72]'
+bigip_password="Dimensiondata555"
+
+
+[f5]
+172.16.121.71 node_id=61 hostname=str-71.msts.nfv
+172.16.121.72 node_id=62 hostname=str-72.msts.nfv
+
+
+[f5:vars]
+ansible_connection=ssh
+ansible_ssh_user=root
+ansible_ssh_pass=Dimensiondata555
+user=admin
+bigip_password=Dimensiondata555

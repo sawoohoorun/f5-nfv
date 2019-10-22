@@ -1,0 +1,40 @@
+---
+- name: upload irules to F5 dag
+  hosts: engine
+  gather_facts: false
+  vars:
+    provider:
+      user: admin
+      validate_certs: no
+      server_port: 443
+      password: "Dimensiondata555"
+    irule_files:
+      - irules/dag.tcl
+      - irules/dag-reverse.tcl
+  tasks:
+
+  - name: copy irule file
+    copy:
+      src: "{{item}}"
+      dest: "{{item}}"
+    with_items: "{{irule_files}}"
+
+  - name: Add the iRule to dag
+    bigip_irule:
+      module: ltm
+      name: dag
+      src: irules/dag.tcl
+      state: present
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+    with_items: "{{ node_id }}"
+
+  - name: Add the iRule to dag reverse
+    bigip_irule:
+      module: ltm
+      name: dag-reverse
+      src: irules/dag-reverse.tcl
+      state: present
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+    with_items: "{{ node_id }}"

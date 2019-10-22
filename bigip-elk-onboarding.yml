@@ -1,0 +1,24 @@
+---
+- name: BIG-IP DB VNF onboarding
+  hosts: engine
+  gather_facts: false
+  vars:
+    provider:
+      user: admin
+      validate_certs: no
+      server_port: 443
+
+  tasks:
+  - name:  Creates a new ELK instance
+    os_server:
+      cloud: devstack
+      state: present
+      name: "elk-{{ item }}"
+      image: centos8
+
+      timeout: 200
+      flavor: m1.large
+      nics: "port-name=vlan103_node{{ item }}"
+
+    with_items: "{{ elk_node_id }}"
+    register: result

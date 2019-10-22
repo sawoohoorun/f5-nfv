@@ -1,0 +1,11 @@
+---
+
+- name: Destroy BIG-IP instance
+  hosts: engine
+  gather_facts: false
+  tasks:
+  - name: remove an instance
+    os_server:
+      name: "sgn-{{ item }}"
+      state: absent
+    with_items: "{{ sgn_node_id }}"

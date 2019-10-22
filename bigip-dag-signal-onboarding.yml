@@ -1,0 +1,77 @@
+---
+- name: BIG-IP DAG signaling on boarding
+  hosts: engine
+  gather_facts: false
+  vars:
+    provider:
+      user: admin
+      validate_certs: no
+      server_port: 443
+
+  tasks:
+  - name:  Creates a new BIG-IP instance
+    os_server:
+      cloud: devstack
+      state: present
+      name: "dag-s-{{ item }}"
+      image: bigip15
+
+      timeout: 200
+      flavor: m1.large
+      nics: "port-name=vlan121_node{{ item }},port-name=vlan103_node{{ item }},port-name=vlan104_node{{ item }},port-name=vlan105_node{{ item }}"
+
+    with_items: "{{ dag_signal_node_id }}"
+    register: result
+    notify:
+    - waiting for BIG-IP service
+    - configure admin password
+    - waiting for admin password apply
+    - configure root password
+
+  - name: remove exising key
+    command:  "ssh-keygen -R 172.16.121.{{item}}"
+    with_items: "{{ dag_signal_node_id }}"
+    register: remove-key
+
+  - name: run ssh-keyscan to add keys to known_hosts
+    command:  "ssh-keyscan -t rsa 172.16.121.{{item}} >> ~/.ssh/known_hosts"
+    with_items: "{{ dag_signal_node_id }}"
+
+  handlers:
+  - name: waiting for BIG-IP service
+    wait_for:
+      host: "172.16.121.{{ item }}"
+      port: 443
+      sleep: 60
+    with_items: "{{ dag_signal_node_id }}"
+
+  - name: configure admin password
+    uri:
+      url: "https://172.16.121.{{ item }}/mgmt/shared/authz/users/admin"
+      method: PATCH
+      body: '{"oldPassword":"admin","password":"{{ bigip_password }}"}'
+      body_format: json
+      validate_certs: no
+      force_basic_auth: yes
+      user: admin
+      password: admin
+      headers:
+        Content-Type: "application/json"
+    with_items: "{{ dag_signal_node_id }}"
+    ignore_errors: yes
+
+  - name: waiting for admin password apply
+    wait_for:
+      timeout: 60
+
+  - name: configure root password
+    bigip_user:
+      username_credential: root
+      password_credential: "{{ bigip_password }}"
+      update_password: always
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      password: "{{ bigip_password }}"
+      state: present
+    with_items: "{{ dag_signal_node_id }}"
+    ignore_errors: yes

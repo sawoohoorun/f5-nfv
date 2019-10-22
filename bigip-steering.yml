@@ -1,0 +1,142 @@
+---
+- name: BIG-IP Steering Ltm provisioning
+  hosts: engine
+  gather_facts: false
+  vars:
+    provider:
+      user: admin
+      validate_certs: no
+      server_port: 443
+      password: "Dimensiondata555"
+    default_password: "password"
+    bigip_password: "Dimensiondata555"
+
+  tasks:
+
+
+  - name: Create static route with gateway address
+    bigip_management_route:
+      network: 172.16.0.0/16
+      gateway: 172.16.121.1
+      name: mgmt-route
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      state: absent
+    with_items: "{{ str_node_id }}"
+
+  - name: Create static route with gateway address
+    bigip_static_route:
+      destination: 172.16.161.0
+      netmask: 255.255.255.0
+      gateway_address: 172.16.101.253
+      name: ue
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+    with_items: "{{ str_node_id }}"
+
+
+
+  - name: Create a pool
+    bigip_pool:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      lb_method: round-robin
+      monitors: /Common/gateway_icmp
+      name: arista-egress
+    with_items: "{{ str_node_id }}"
+
+  - name: Add members to pool
+    bigip_pool_member:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      host: 172.16.102.253
+      name: arista-egress-gateway
+      pool: arista-egress
+      state: absent
+      port: 0
+    with_items: "{{ str_node_id }}"
+
+  - name: Add members to pool
+    bigip_pool_member:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      host: 172.16.103.253
+      name: arista-egress-gateway
+      pool: arista-egress
+      port: 0
+    with_items: "{{ str_node_id }}"
+
+
+
+
+
+
+
+
+  - name: Create a UE gateway pool
+    bigip_pool:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      lb_method: round-robin
+      monitors: /Common/gateway_icmp
+      name: arista-ingress
+    with_items: "{{ str_node_id }}"
+
+  - name: Add members to pool
+    bigip_pool_member:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      host: 172.16.101.253
+      name: arista-ingress-gateway
+      pool: arista-ingress
+      port: 0
+    with_items: "{{ str_node_id }}"
+
+  - name: Create a syslog server pool
+    bigip_pool:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      lb_method: round-robin
+      monitors: /Common/gateway_icmp
+      name: syslog_server_pool
+    with_items: "{{ str_node_id }}"
+
+  - name: Add members to syslog pool
+    bigip_pool_member:
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+      host: 172.16.9.90
+      name: loginsight
+      pool: syslog_server_pool
+      port: 0
+    with_items: "{{ str_node_id }}"
+
+
+  - name: remove data forward virtual server
+    bigip_virtual_server:
+      state: absent
+      partition: Common
+      name: data
+      source: 0.0.0.0/0
+      destination: 0.0.0.0
+      mask: 0.0.0.0
+      port: 0
+      pool: arista-egress
+      description: Data forward
+      ip_protocol: any
+      profiles:
+        - ipother
+      enabled_vlans:
+        - /Common/vlan103
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+    with_items: "{{ str_node_id }}"
+
+  - name: remove data reverse virtual server
+    bigip_virtual_server:
+      state: absent
+      partition: Common
+      name: data-reverse
+      provider: "{{ provider }}"
+      server: "172.16.121.{{ item }}"
+    with_items: "{{ str_node_id }}"

@@ -1,0 +1,11 @@
+---
+
+- name: Destroy BIG-IP instance
+  hosts: engine
+  gather_facts: false
+  tasks:
+  - name: remove an instance
+    os_server:
+      name: "dag-s-{{ item }}"
+      state: absent
+    with_items: "{{ dag_signal_node_id }}"

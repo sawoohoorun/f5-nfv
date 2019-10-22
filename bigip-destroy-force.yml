@@ -1,0 +1,11 @@
+---
+- name: Destroy BIG-IP instance
+  hosts: engine
+
+  tasks:
+  - name: remove an instance
+    os_server:
+      cloud: devstack
+      name: "str-{{ item }}"
+      state: absent
+    with_items: "{{ node_id }}"

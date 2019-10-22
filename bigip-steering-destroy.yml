@@ -1,0 +1,44 @@
+---
+- name: remove steering node license from BIG-IQ
+  hosts: f5-steering
+  gather_facts: false
+
+  vars:
+    bigip_password: "Dimensiondata555"
+  tasks:
+  - name: revoke license
+    uri:
+      url: "https://{{inventory_hostname}}/mgmt/shared/declarative-onboarding"
+      method: POST
+      user: admin
+      password: "{{bigip_password}}"
+      force_basic_auth: true
+      validate_certs: no
+      headers:
+        Origin: "https://{{inventory_hostname}}"
+        Content-Type: application/json;charset=UTF-8
+      body: "{{ lookup('file','license_revoke.json') | to_json }}"
+      body_format: json
+      status_code: 202
+
+  - name: get declaire
+    uri:
+      url: "https://{{inventory_hostname}}/mgmt/shared/declarative-onboarding"
+      method: GET
+      user: admin
+      password: "{{bigip_password}}"
+      force_basic_auth: true
+      validate_certs: no
+      status_code:
+        - 200
+        - 202
+
+- name: Destroy BIG-IP instance
+  hosts: engine
+  gather_facts: false
+  tasks:
+  - name: remove an instance
+    os_server:
+      name: "str-{{ item }}"
+      state: absent
+    with_items: "{{ str_node_id }}"

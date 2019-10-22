@@ -1,0 +1,106 @@
+[engine]
+ansible.msts.nfv ansible_connection=ssh
+
+
+[engine:vars]
+node_id= '[61,62,63,64]'
+str_node_id= '[71,72,73,74]'
+sgn_node_id= '[91,92]'
+dag_signal_node_id= '[81,82]'
+db_node_id = '[41,42,43]'
+epsn_node_id = '[49]'
+change_node_id = '[201,202,203]'
+client_node_id = '[48]'
+elk_node_id = '[201,202,203]'
+password="Dimensiondata555"
+bigip_password="Dimensiondata555"
+
+
+[f5]
+172.16.121.61 node_id=61 hostname=dag-61.msts.nfv
+172.16.121.62 node_id=62 hostname=dag-62.msts.nfv
+172.16.121.63 node_id=63 hostname=dag-63.msts.nfv
+172.16.121.64 node_id=64 hostname=dag-64.msts.nfv
+
+[f5-steering]
+172.16.121.71 node_id=71 hostname=str-71.msts.nfv
+172.16.121.72 node_id=72 hostname=str-72.msts.nfv
+172.16.121.73 node_id=73 hostname=str-73.msts.nfv
+172.16.121.74 node_id=74 hostname=str-74.msts.nfv
+
+[f5-dag-signal]
+172.16.121.81 node_id=81 hostname=dag-s-81.msts.nfv
+172.16.121.82 node_id=82 hostname=dag-s-82.msts.nfv
+
+[f5-signal]
+172.16.121.91 node_id=91 hostname=sgn-91.msts.nfv
+172.16.121.92 node_id=92 hostname=sgn-92.msts.nfv
+
+[f5-db-cluster]
+172.16.121.41 node_id=41 partner_id=42 hostname=db-41.msts.nfv
+
+[f5-db]
+172.16.121.43 node_id=43 hostname=db-43.msts.nfv
+
+[f5-epsn]
+172.16.121.49 node_id=49 hostname=epsn-49.msts.nfv
+
+[f5-client-signal]
+172.16.121.48 node_id=48 hostname=client-48.msts.nfv
+
+
+[f5-client-signal:vars]
+ansible_connection=ssh
+ansible_ssh_user=ubuntu
+ansible_ssh_pass=ubuntu
+
+[f5-epsn:vars]
+ansible_connection=ssh
+ansible_ssh_user=root
+ansible_ssh_pass=Dimensiondata555
+user=admin
+bigip_password=Dimensiondata555
+
+[f5:vars]
+ansible_connection=ssh
+ansible_ssh_user=root
+ansible_ssh_pass=Dimensiondata555
+user=admin
+bigip_password=Dimensiondata555
+
+
+[f5-dag-signal:vars]
+ansible_connection=ssh
+ansible_ssh_user=root
+ansible_ssh_pass=Dimensiondata555
+user=admin
+bigip_password=Dimensiondata555
+
+[f5-steering:vars]
+ansible_connection=ssh
+ansible_ssh_user=root
+ansible_ssh_pass=Dimensiondata555
+user=admin
+bigip_password=Dimensiondata555
+
+
+[f5-signal:vars]
+ansible_connection=ssh
+ansible_ssh_user=root
+ansible_ssh_pass=Dimensiondata555
+user=admin
+bigip_password=Dimensiondata555
+
+[f5-db:vars]
+ansible_connection=ssh
+ansible_ssh_user=root
+ansible_ssh_pass=Dimensiondata555
+user=admin
+bigip_password=Dimensiondata555
+
+[f5-db-cluster:vars]
+ansible_connection=ssh
+ansible_ssh_user=root
+ansible_ssh_pass=Dimensiondata555
+user=admin
+bigip_password=Dimensiondata555
